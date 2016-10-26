@@ -1,0 +1,719 @@
+import java.io.FileNotFoundException;
+import java.io.IOException;
+import java.io.InputStream;
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+import org.apache.commons.lang3.StringUtils;
+import org.apache.poi.hssf.usermodel.HSSFRow;
+import org.apache.poi.hssf.usermodel.HSSFSheet;
+import org.apache.poi.hssf.usermodel.HSSFWorkbook;
+import org.apache.poi.ss.usermodel.Cell;
+import org.apache.poi.ss.usermodel.Row;
+import org.apache.poi.ss.usermodel.Sheet;
+import org.apache.poi.ss.usermodel.Workbook;
+import org.apache.poi.xssf.usermodel.XSSFRow;
+import org.apache.poi.xssf.usermodel.XSSFSheet;
+import org.apache.poi.xssf.usermodel.XSSFWorkbook;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.web.multipart.MultipartFile;
+
+/**
+ * EXCEL工具类
+ * 
+ */
+public class ExcelUtil {
+
+	private static Logger log = LoggerFactory.getLogger(ExcelUtil.class);
+
+	private static final int hundredthousand = 100000;
+
+	private static final int thousand = 1000;
+
+	/**
+	 * 从2003格式的excel文件中读取数据放到list中返回
+	 * 
+	 * @param file
+	 *            :要读取的文件
+	 * @param o返回list中的对象
+	 * @return
+	 * @throws IOException
+	 * @throws IllegalArgumentException
+	 * @throws IllegalAccessException
+	 * @throws InvocationTargetException
+	 * @throws InstantiationException
+	 */
+	@Deprecated
+	public static List<Object> readExcel2003(InputStream is, Object o)
+			throws IOException, IllegalArgumentException,
+			IllegalAccessException, InvocationTargetException,
+			InstantiationException {
+
+		List<Object> list = new ArrayList<Object>();
+		// InputStream is = null;
+
+		// 返回list中数据总数量
+		int totalNum = 0;
+		try {
+			// is = new FileInputStream(file);
+
+			HSSFWorkbook book = new HSSFWorkbook(is);
+
+			int sheetNum = book.getNumberOfSheets();
+
+			Method[] ms = o.getClass().getDeclaredMethods();
+
+			for (int i = 0; i < sheetNum; i++) {
+
+				HSSFSheet sheet = book.getSheetAt(i);
+				int rowNum = sheet.getLastRowNum();
+
+				int colNum = 0;
+				for (int j = 1; j <= rowNum; j++) {
+
+					HSSFRow row = sheet.getRow(j);
+
+					if (row == null) {
+						continue;
+					}
+
+					Object obj = o.getClass().newInstance();
+
+					// 列数
+					colNum = row.getPhysicalNumberOfCells();
+
+					// set方法的数量
+					int count = 0;
+
+					// 空单元格的数量
+					int blankCellNum = 0;
+
+					for (Method m : ms) {
+						if ("void".equals(m.getReturnType().getName())) {
+							String cellValue = getCellValue(row.getCell(count));
+							if (cellValue == null || cellValue.isEmpty()) {
+								blankCellNum++;
+							} else {
+								m.invoke(obj, cellValue);
+							}
+							count++;
+							if (count >= colNum) {
+								break;
+							}
+						}
+					}
+
+					if (blankCellNum >= colNum) {
+						list.add("");
+						// continue;
+					} else {
+						list.add(obj);
+					}
+
+					totalNum++;
+
+					if (totalNum > 100000) {
+						log.error("EXCEL 数据行超过10W!");
+						return list;
+					}
+
+				}
+
+			}
+		} catch (FileNotFoundException e) {
+
+			log.error("读取文件异常!");
+		} finally {
+			if (is != null) {
+				is.close();
+			}
+		}
+
+		return list;
+
+	}
+
+	/**
+	 * 从2007格式的excel文件中读取数据放到list中返回
+	 * 
+	 * @param file
+	 *            :要读取的文件
+	 * @param o返回list中的对象
+	 * @return
+	 * @throws IOException
+	 * @throws IllegalArgumentException
+	 * @throws IllegalAccessException
+	 * @throws InvocationTargetException
+	 * @throws InstantiationException
+	 */
+	@Deprecated
+	public static List<Object> readExcel2007(InputStream is, Object o)
+			throws IOException, IllegalArgumentException,
+			IllegalAccessException, InvocationTargetException,
+			InstantiationException {
+
+		List<Object> list = new ArrayList<Object>();
+		// InputStream is = null;
+
+		// 返回list中数据总数量
+		int totalNum = 0;
+		try {
+			// is = new FileInputStream(file);
+
+			XSSFWorkbook book = new XSSFWorkbook(is);
+
+			// XSSFWorkbook book = new HSSFWorkbook(is);
+
+			int sheetNum = book.getNumberOfSheets();
+
+			Method[] ms = o.getClass().getDeclaredMethods();
+
+			for (int i = 0; i < sheetNum; i++) {
+
+				XSSFSheet sheet = (XSSFSheet) book.getSheetAt(i);
+				int rowNum = sheet.getLastRowNum();
+
+				int colNum = 0;
+				for (int j = 1; j <= rowNum; j++) {
+
+					XSSFRow row = sheet.getRow(j);
+
+					if (row == null) {
+						continue;
+					}
+
+					Object obj = o.getClass().newInstance();
+
+					// 列数
+					colNum = row.getPhysicalNumberOfCells();
+
+					// set方法的数量
+					int count = 0;
+
+					// 空单元格的数量
+					int blankCellNum = 0;
+
+					for (Method m : ms) {
+						if ("void".equals(m.getReturnType().getName())) {
+							String cellValue = getCellValue(row.getCell(count));
+							if (cellValue == null || cellValue.isEmpty()) {
+								blankCellNum++;
+							} else {
+								m.invoke(obj, cellValue);
+							}
+							count++;
+							if (count >= colNum) {
+								break;
+							}
+						}
+					}
+
+					if (blankCellNum >= colNum) {
+						list.add("");
+						// continue;
+					} else {
+						list.add(obj);
+					}
+
+					totalNum++;
+
+					if (totalNum > 100000) {
+						log.error("EXCEL 数据行超过10W!");
+						return list;
+					}
+
+				}
+
+			}
+		} catch (FileNotFoundException e) {
+
+			log.error("读取文件异常!");
+		} finally {
+			if (is != null) {
+				is.close();
+			}
+		}
+
+		return list;
+	}
+
+	/**
+	 * 根据字段名从2003格式的excel文件中读取数据放到list中返回
+	 * 
+	 * @param file
+	 *            :要读取的文件
+	 * @param o返回list中的对象
+	 * @param array
+	 *            字段名数组，放置的名称和O中属性名称一致，顺序和Excel中的字段顺序一致
+	 * @return
+	 * @throws IOException
+	 * @throws IllegalArgumentException
+	 * @throws IllegalAccessException
+	 * @throws InvocationTargetException
+	 * @throws InstantiationException
+	 */
+	@Deprecated
+	public static List<Object> readExcel2003ByFieldNames(InputStream is,
+			Object o, String[] array) throws IOException,
+			IllegalArgumentException, IllegalAccessException,
+			InvocationTargetException, InstantiationException {
+
+		List<Object> list = new ArrayList<Object>();
+		// InputStream is = null;
+
+		// 返回list中数据总数量
+		int totalNum = 0;
+		try {
+			// is = new FileInputStream(file);
+
+			HSSFWorkbook book = new HSSFWorkbook(is);
+
+			int sheetNum = book.getNumberOfSheets();
+
+			Method[] ms = o.getClass().getDeclaredMethods();
+
+			for (int i = 0; i < sheetNum; i++) {
+
+				HSSFSheet sheet = book.getSheetAt(i);
+				int rowNum = sheet.getLastRowNum();
+
+				int colNum = 0;
+				for (int j = 1; j <= rowNum; j++) {
+
+					HSSFRow row = sheet.getRow(j);
+
+					if (row == null) {
+						continue;
+					}
+
+					Object obj = o.getClass().newInstance();
+
+					// 列数
+					colNum = row.getPhysicalNumberOfCells();
+
+					// 空单元格的数量
+					int blankCellNum = 0;
+
+					// for (Method m : ms) {
+					for (int k = 0; k < array.length; k++) {
+
+						if (StringUtils.isEmpty(array[k])) {
+							continue;
+						}
+
+						String md = "set"
+								+ Character.toUpperCase(array[k].charAt(0))
+								+ array[k].substring(1);
+
+						for (Method m : ms) {
+
+							if (md.equals(m.getName())) {
+								String cellValue = getCellValue(row.getCell(k));
+								if (cellValue == null || cellValue.isEmpty()) {
+									blankCellNum++;
+								} else {
+									m.invoke(obj, cellValue);
+								}
+								// count++;
+								// if (count >= colNum) {
+								// break;
+								// }
+							}
+						}
+					}
+
+					if (blankCellNum >= colNum) {
+						list.add("");
+						// continue;
+					} else {
+						list.add(obj);
+					}
+
+					totalNum++;
+
+					if (totalNum > 100000) {
+						log.error("EXCEL 数据行超过10W!");
+						return list;
+					}
+
+				}
+
+			}
+		} catch (FileNotFoundException e) {
+
+			log.error("读取文件异常!");
+		} finally {
+			if (is != null) {
+				is.close();
+			}
+		}
+
+		return list;
+
+	}
+
+	/**
+	 * 从2007格式的excel文件中读取数据放到list中返回
+	 * 
+	 * @param file
+	 *            :要读取的文件
+	 * @param o返回list中的对象
+	 * @param array
+	 *            字段名数组，放置的名称和O中属性名称一致，顺序和Excel中的字段顺序一致
+	 * @return
+	 * @throws IOException
+	 * @throws IllegalArgumentException
+	 * @throws IllegalAccessException
+	 * @throws InvocationTargetException
+	 * @throws InstantiationException
+	 */
+	@Deprecated
+	public static List<Object> readExcel2007ByFieldNames(InputStream is,
+			Object o, String[] array) throws IOException,
+			IllegalArgumentException, IllegalAccessException,
+			InvocationTargetException, InstantiationException {
+
+		List<Object> list = new ArrayList<Object>();
+		// InputStream is = null;
+
+		// 返回list中数据总数量
+		int totalNum = 0;
+		try {
+			// is = new FileInputStream(file);
+
+			XSSFWorkbook book = new XSSFWorkbook(is);
+
+			// XSSFWorkbook book = new HSSFWorkbook(is);
+
+			int sheetNum = book.getNumberOfSheets();
+
+			Method[] ms = o.getClass().getDeclaredMethods();
+
+			for (int i = 0; i < sheetNum; i++) {
+
+				XSSFSheet sheet = (XSSFSheet) book.getSheetAt(i);
+				int rowNum = sheet.getLastRowNum();
+
+				int colNum = 0;
+				for (int j = 1; j <= rowNum; j++) {
+
+					XSSFRow row = sheet.getRow(j);
+
+					if (row == null) {
+						continue;
+					}
+
+					Object obj = o.getClass().newInstance();
+
+					// 列数
+					colNum = row.getPhysicalNumberOfCells();
+
+					// 空单元格的数量
+					int blankCellNum = 0;
+
+					for (int k = 0; k < array.length; k++) {
+
+						if (StringUtils.isEmpty(array[k])) {
+							continue;
+						}
+
+						String md = "set"
+								+ Character.toUpperCase(array[k].charAt(0))
+								+ array[k].substring(1);
+
+						for (Method m : ms) {
+							if (md.equals(m.getName())) {
+								String cellValue = getCellValue(row.getCell(k));
+								if (cellValue == null || cellValue.isEmpty()) {
+									blankCellNum++;
+								} else {
+									m.invoke(obj, cellValue);
+								}
+
+							}
+						}
+					}
+
+					if (blankCellNum >= colNum) {
+						list.add("");
+						// continue;
+					} else {
+						list.add(obj);
+					}
+
+					totalNum++;
+
+					if (totalNum > 100000) {
+						log.error("EXCEL 数据行超过10W!");
+						return list;
+					}
+
+				}
+
+			}
+		} catch (FileNotFoundException e) {
+
+			log.error("读取文件异常!");
+		} finally {
+			if (is != null) {
+				is.close();
+			}
+		}
+
+		return list;
+	}
+
+	private static String getCellValue(Cell cell) {
+		if (cell == null || cell.toString().isEmpty()) {
+			return null;
+		}
+		String cellValue = cell.toString();
+		if (cell.getCellType() == Cell.CELL_TYPE_NUMERIC) {
+			cell.setCellType(Cell.CELL_TYPE_STRING);
+			cellValue = cell.getStringCellValue();
+		}
+		return cellValue;
+	}
+
+	/**
+	 * 从2007/2003格式的excel文件中读取数据放到MAP中返回
+	 * 
+	 * @param file
+	 *            :要读取的文件
+	 * @param o返回list中的对象
+	 * @param array
+	 *            字段名数组，放置的名称和O中属性名称一致，顺序和Excel中的字段顺序一致
+	 * @return
+	 * @throws IOException
+	 * @throws IllegalArgumentException
+	 * @throws IllegalAccessException
+	 * @throws InvocationTargetException
+	 * @throws InstantiationException
+	 */
+	private static Map<String, Map<String, Object>> readExcelByFieldNames(
+			Object o, String[] array, int maxrown, int maxcolumn, Workbook book)
+			throws InstantiationException, IllegalAccessException {
+
+		Map<String, Map<String, Object>> map = new HashMap<String, Map<String, Object>>();
+
+		Map<String, Object> correctmap = new HashMap<String, Object>();
+		Map<String, Object> errormap = new HashMap<String, Object>();
+		
+		// 返回list中数据总数量
+		int totalRowNum = 0;
+
+		int sheetNum = book.getNumberOfSheets();
+
+		Method[] ms = o.getClass().getDeclaredMethods();
+
+		for (int i = 0; i < sheetNum; i++) {
+
+			Sheet sheet = book.getSheetAt(i);
+			int rowNum = sheet.getLastRowNum();
+
+			// totalRowNum = totalRowNum + rowNum;
+
+			int colNum = 0;
+
+			List<String> blankList = new ArrayList<String>();
+
+			if (rowNum < 1) {
+				continue;
+			}
+
+			for (int j = 1; j <= rowNum; j++) {
+
+				Row row = sheet.getRow(j);
+
+				if (row == null) {
+					continue;
+				}
+
+				Object obj = o.getClass().newInstance();
+
+				// 列数
+				colNum = row.getPhysicalNumberOfCells();
+
+				if (colNum > maxcolumn) {
+					throw new ColumnException(
+							"the column num of this file is greater than "
+									+ maxcolumn);
+				}
+
+				// 空单元格的数量
+				int blankCellNum = 0;
+
+				for (int k = 0; k < array.length; k++) {
+
+					if (StringUtils.isEmpty(array[k])) {
+						continue;
+					}
+
+					String md = "set"
+							+ Character.toUpperCase(array[k].charAt(0))
+							+ array[k].substring(1);
+
+					for (Method m : ms) {
+						if (md.equals(m.getName())) {
+							String cellValue = getCellValue(row.getCell(k));
+							if (cellValue == null || cellValue.isEmpty()) {
+								blankCellNum++;
+							} else {
+								try {
+									m.invoke(obj, cellValue);
+								} catch (IllegalArgumentException e) {
+									errormap.put(i + "-" + j, e.getMessage());
+									log.error(e.getMessage(), e);
+								} catch (InvocationTargetException e) {
+									errormap.put(i + "-" + j, e.getMessage());
+									log.error(e.getMessage(), e);
+								}
+							}
+
+						}
+					}
+				}
+				
+				String key =(i+1) + "-" + (j+1);
+
+				if (blankCellNum >= maxcolumn) {
+					errormap.put(key, "this line is blank");
+					blankList.add(key);
+				} else {
+
+					correctmap.put(key, obj);
+					blankList.clear();
+				}
+
+			}
+
+			int size = blankList.size();
+
+			for (int m = 0; m < size; m++) {
+				errormap.remove(blankList.get(m));
+			}
+
+			totalRowNum = totalRowNum + rowNum - size;
+
+		}
+
+		if (totalRowNum > maxrown) {
+			throw new RowNumException(
+					"the total row num of this file is greater than " + maxrown);
+		}
+
+		map.put(Constants.ERROR, errormap);
+		map.put(Constants.CORRECT, correctmap);
+		return map;
+	}
+
+	/**
+	 * 读取excel文件
+	 * 
+	 * @param excelFile
+	 * @param maxrowns
+	 *            默认10w
+	 * @param maxcolums
+	 *            默认1k
+	 * @return
+	 * @throws IOException
+	 * @throws IllegalAccessException
+	 * @throws InstantiationException
+	 * @throws Exception
+	 */
+	public static Map<String, Map<String, Object>> readExcel(
+			MultipartFile excelFile, Object o, String[] array, int maxrowns,
+			int maxcolums) throws IOException, InstantiationException,
+			IllegalAccessException {
+
+		
+		Map<String, Map<String, Object>> map = null;
+
+		if (excelFile == null) {
+			return null;
+		}
+
+		if (maxrowns > hundredthousand) {
+			throw new RowNumException(
+					"the max row num of file can't be greater than "
+							+ hundredthousand);
+		} else if (maxrowns <= 0) {
+			maxrowns = hundredthousand;
+		}
+
+		if (maxcolums > thousand) {
+			throw new ColumnException(
+					"the max column num of file can't be greater than "
+							+ thousand);
+		} else if (maxcolums <= 0) {
+			maxcolums = thousand;
+		}
+
+		CreateExcelObjectFactory factory = CreateExcelObjectFactory
+				.getDefaultInstance();
+
+		String execlname = excelFile.getOriginalFilename();
+
+		if (StringUtils.isBlank(execlname)) {
+			return null;
+		}
+
+		int type = 0;
+
+		// 判断文件格式
+		if (execlname.endsWith(".xls")) {
+			type = 3;
+		} else if (execlname.endsWith(".xlsx")) {
+			type = 7;
+		} else {
+			throw new FileTypeException("file type is not correct!");
+		}
+
+		InputStream is = null;
+		try {
+			is = excelFile.getInputStream();
+
+			Workbook book = this.getWorkBook(is, type);
+
+			map = readExcelByFieldNames(o, array, maxrowns, maxcolums, book);
+
+		} finally {
+			if (is != null) {
+				is.close();
+			}
+		}
+
+		return map;
+
+	}
+  
+  	/**
+	 * 获取worbook对象
+	 * @param inputStream
+	 * @param type
+	 * @return
+	 * @throws IOException
+	 */
+	public Workbook getWorkBook(InputStream inputStream,int type) throws IOException {
+		
+		if(inputStream == null) {
+			return null;
+		}
+		
+		if (type==3) {// 2003版本的的EXCEL
+			return new HSSFWorkbook(inputStream);
+		} else if (type==7) { //2007版本的的EXCEL
+			return new XSSFWorkbook(inputStream);
+		} else {
+			return null;
+		}
+		
+		
+	}
+
+}
